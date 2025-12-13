@@ -1,4 +1,4 @@
-# IniLiberator
+## IniLiberatorF4
 Liberate your Fallout 4 installation from long startup caused by ini loads!
 
 This `winmm.dll` proxy will skip load of ini files for plugins that do not have ini files (which is most of them). This should massively improve start up times on mod heavy setups.
