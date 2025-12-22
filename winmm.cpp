@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "minhook_extension.h"
 #include "ini_workaround.h"
+#include "steam_workaround.h"
+#include "minhook_facade.h"
 #include "winmm.h"
 #include <cctype>
 #include <mmsystem.h>
@@ -446,7 +448,12 @@ DWORD WINAPI Load(LPVOID lpParam) {
 
 	if (to_lower(procFilename).compare("fallout4.exe") == 0)
 	{
-		iniworkaround::init();
+		if (minhook_facade::init())
+		{
+			ini_workaround::init();
+
+			minhook_facade::enable();
+		}
 	}
 
 	return 0;

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "pch.h"
 #include <MinHook.h>
 #include <string>
@@ -8,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace iniworkaround
+namespace ini_workaround
 {
 	std::unordered_set<std::string> iniFiles;
 
@@ -19,13 +21,18 @@ namespace iniworkaround
 
 	DWORD DetourGetPrivateProfileStringA(LPCSTR lpAppName, LPCSTR lpKeyName, LPCSTR lpDefault, LPSTR lpReturnedString, DWORD nSize, LPCSTR lpFileName)
 	{
-		std::string fileName = to_lower(lpFileName);
-		if (!fileName.starts_with("data\\") || fileName.find("f4se") != std::string::npos)
+		if (iniFiles.empty())
 		{
 			return fpGetPrivateProfileStringA(lpAppName, lpKeyName, lpDefault, lpReturnedString, nSize, lpFileName);
 		}
 
+		std::string fileName = to_lower(lpFileName);
 		fs::path filePath{ fileName };
+		std::string parentDirName = filePath.parent_path().filename().string();
+		if (parentDirName != "data")
+		{
+			return fpGetPrivateProfileStringA(lpAppName, lpKeyName, lpDefault, lpReturnedString, nSize, lpFileName);
+		}
 
 		if (!iniFiles.contains(filePath.filename().string()))
 		{
@@ -46,13 +53,18 @@ namespace iniworkaround
 
 	UINT DetourGetPrivateProfileIntA(LPCSTR lpAppName, LPCSTR lpKeyName, INT nDefault, LPCSTR lpFileName)
 	{
-		std::string fileName = to_lower(lpFileName);
-		if (!fileName.starts_with("data\\") || fileName.find("f4se") != std::string::npos)
+		if (iniFiles.empty())
 		{
 			return fpGetPrivateProfileIntA(lpAppName, lpKeyName, nDefault, lpFileName);
 		}
 
+		std::string fileName = to_lower(lpFileName);
 		fs::path filePath{ fileName };
+		std::string parentDirName = filePath.parent_path().filename().string();
+		if (parentDirName != "data")
+		{
+			return fpGetPrivateProfileIntA(lpAppName, lpKeyName, nDefault, lpFileName);
+		}
 
 		if (!iniFiles.contains(filePath.filename().string()))
 		{
@@ -95,12 +107,6 @@ namespace iniworkaround
 	{
 		logger::info("Start INI workaround.");
 
-		if (MH_Initialize() != MH_OK)
-		{
-			logger::info("Could not initialize MinHook.");
-			return;
-		}
-
 		HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
 		FARPROC procGetPrivateProfileStringA = GetProcAddress(kernel32, "GetPrivateProfileStringA");
 
@@ -123,14 +129,6 @@ namespace iniworkaround
 		logger::info("Hooked GetPrivateProfileIntA.");
 
 		logger::info("Hooked GetPrivateProfileSectionNamesA.");
-
-		if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
-		{
-			logger::info("Could not enable hooks.");
-			return;
-		}
-
-		logger::info("MinHook initialization finished.");
 
 		loadIniFiles();
 	}

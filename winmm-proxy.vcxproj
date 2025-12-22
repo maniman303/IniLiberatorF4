@@ -163,6 +163,7 @@
     <ClInclude Include="logger.h" />
     <ClInclude Include="ini_workaround.h" />
     <ClInclude Include="minhook_extension.h" />
+    <ClInclude Include="minhook_facade.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="string_util.h" />
     <ClInclude Include="winmm.h" />
