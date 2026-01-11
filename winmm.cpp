@@ -446,7 +446,7 @@ DWORD WINAPI Load(LPVOID lpParam) {
 	logger::info("Executable name: '" + procFilename + "'.");
 	logger::info("Executable full path: '" + procFullPathString + "'.");
 
-	if (to_lower(procFilename).compare("fallout4.exe") == 0)
+	if (to_lower(procFilename).compare("fallout4.exe") == 0 || to_lower(procFilename).compare("fallout4vr.exe") == 0)
 	{
 		if (minhook_facade::init())
 		{
