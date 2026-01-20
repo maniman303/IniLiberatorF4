@@ -3,6 +3,7 @@
 #include "pch.h"
 #include <MinHook.h>
 #include <string>
+#include "minhook_extension.h"
 
 namespace steam_workaround
 {

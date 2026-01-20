@@ -7,12 +7,54 @@
 #include <iostream>
 #include <filesystem>
 #include <unordered_set>
+#include <chrono>
 
 namespace fs = std::filesystem;
 
 namespace ini_workaround
 {
 	std::unordered_set<std::string> iniFiles;
+	std::string lastFileName = "";
+	bool lastFileExists = true;
+	std::chrono::steady_clock::time_point lastFileCheck = std::chrono::steady_clock::now();
+
+	bool ValidateIniCall(LPCSTR lpFileName)
+	{
+		std::string fileName = to_lower(lpFileName);
+		fs::path filePath{ fileName };
+		fs::path parentDir = filePath.parent_path();
+		if (parentDir.empty())
+		{
+			return true;
+		}
+
+		std::string parentDirName = filePath.parent_path().filename().string();
+		if (parentDirName != "data")
+		{
+			return true;
+		}
+
+		if (fileName != lastFileName)
+		{
+			//logger::info(std::format("Filename changed to [{0}].", fileName));
+			lastFileName = fileName;
+			lastFileExists = fs::exists(fileName);
+			lastFileCheck = std::chrono::steady_clock::now();
+			return true;
+		}
+
+		std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+		double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(now - lastFileCheck).count();
+
+		if (seconds >= 1.0)
+		{
+			lastFileExists = fs::exists(fileName);
+			lastFileCheck = std::chrono::steady_clock::now();
+			return lastFileExists;
+		}
+
+		return false;
+	}
 
 	// GetPrivateProfileStringA
 	typedef DWORD(WINAPI* GetPrivateProfileStringA)(LPCSTR, LPCSTR, LPCSTR, LPSTR, DWORD, LPCSTR);
@@ -21,29 +63,16 @@ namespace ini_workaround
 
 	DWORD DetourGetPrivateProfileStringA(LPCSTR lpAppName, LPCSTR lpKeyName, LPCSTR lpDefault, LPSTR lpReturnedString, DWORD nSize, LPCSTR lpFileName)
 	{
-		if (iniFiles.empty())
+		if (ValidateIniCall(lpFileName))
 		{
+			//logger::info(std::format("Reading file [{0}].", lpFileName));
+
 			return fpGetPrivateProfileStringA(lpAppName, lpKeyName, lpDefault, lpReturnedString, nSize, lpFileName);
 		}
 
-		std::string fileName = to_lower(lpFileName);
-		fs::path filePath{ fileName };
-		std::string parentDirName = filePath.parent_path().filename().string();
-		if (parentDirName != "data")
-		{
-			return fpGetPrivateProfileStringA(lpAppName, lpKeyName, lpDefault, lpReturnedString, nSize, lpFileName);
-		}
+		SetLastError(ERROR_FILE_NOT_FOUND);
 
-		if (!iniFiles.contains(filePath.filename().string()))
-		{
-			SetLastError(ERROR_FILE_NOT_FOUND);
-
-			return copy_string(lpDefault, lpReturnedString, nSize);
-		}
-
-		// logger::info(std::format("GetPrivateProfileStringA file [{0}] key [{1}].", lpFileName, lpKeyName));
-
-		return fpGetPrivateProfileStringA(lpAppName, lpKeyName, lpDefault, lpReturnedString, nSize, lpFileName);
+		return copy_string(lpDefault, lpReturnedString, nSize);
 	}
 
 	// GetPrivateProfileIntA
@@ -53,29 +82,16 @@ namespace ini_workaround
 
 	UINT DetourGetPrivateProfileIntA(LPCSTR lpAppName, LPCSTR lpKeyName, INT nDefault, LPCSTR lpFileName)
 	{
-		if (iniFiles.empty())
+		if (ValidateIniCall(lpFileName))
 		{
+			//logger::info(std::format("Reading file [{0}].", lpFileName));
+
 			return fpGetPrivateProfileIntA(lpAppName, lpKeyName, nDefault, lpFileName);
 		}
 
-		std::string fileName = to_lower(lpFileName);
-		fs::path filePath{ fileName };
-		std::string parentDirName = filePath.parent_path().filename().string();
-		if (parentDirName != "data")
-		{
-			return fpGetPrivateProfileIntA(lpAppName, lpKeyName, nDefault, lpFileName);
-		}
+		SetLastError(ERROR_FILE_NOT_FOUND);
 
-		if (!iniFiles.contains(filePath.filename().string()))
-		{
-			SetLastError(ERROR_FILE_NOT_FOUND);
-
-			return static_cast<UINT>(nDefault);
-		}
-
-		// logger::info(std::format("GetPrivateProfileIntA file [{0}] key [{1}].", lpFileName, lpKeyName));
-
-		return fpGetPrivateProfileIntA(lpAppName, lpKeyName, nDefault, lpFileName);
+		return static_cast<UINT>(nDefault);
 	}
 
 	static void loadIniFiles()
@@ -130,6 +146,6 @@ namespace ini_workaround
 
 		logger::info("Hooked GetPrivateProfileSectionNamesA.");
 
-		loadIniFiles();
+		//loadIniFiles();
 	}
 }
